@@ -83,6 +83,21 @@ enum NVGalign {
 	NVG_ALIGN_BASELINE	= 1<<6, // Default, align text vertically to baseline. 
 };
 
+enum NVGblendMode
+{
+	NVG_SOURCE_OVER,
+	NVG_SOURCE_ATOP,
+	NVG_SOURCE_IN,
+	NVG_SOURCE_OUT,
+	NVG_DESTINATION_OVER,
+	NVG_DESTINATION_ATOP,
+	NVG_DESTINATION_IN,
+	NVG_DESTINATION_OUT,
+	NVG_LIGHTER,
+	NVG_COPY,
+	NVG_XOR
+};
+
 struct NVGglyphPosition {
 	const char* str;	// Position of the glyph in the input string.
 	float x;			// The x-coordinate of the logical glyph position.
@@ -187,6 +202,9 @@ void nvgReset(NVGcontext* ctx);
 
 // Sets current stroke style to a solid color.
 void nvgStrokeColor(NVGcontext* ctx, NVGcolor color);
+
+// Sets global blending mode
+void nvgBlendMode(NVGcontext* ctx, int mode);
 
 // Sets current stroke style to a paint, which can be a one of the gradients or a pattern.
 void nvgStrokePaint(NVGcontext* ctx, NVGpaint paint);
@@ -591,9 +609,9 @@ struct NVGparams {
 	void (*renderViewport)(void* uptr, int width, int height);
 	void (*renderCancel)(void* uptr);
 	void (*renderFlush)(void* uptr);
-	void (*renderFill)(void* uptr, NVGpaint* paint, NVGscissor* scissor, float fringe, const float* bounds, const NVGpath* paths, int npaths);
-	void (*renderStroke)(void* uptr, NVGpaint* paint, NVGscissor* scissor, float fringe, float strokeWidth, const NVGpath* paths, int npaths);
-	void (*renderTriangles)(void* uptr, NVGpaint* paint, NVGscissor* scissor, const NVGvertex* verts, int nverts);
+	void (*renderFill)(void* uptr, NVGpaint* paint, NVGscissor* scissor, float fringe, const float* bounds, const NVGpath* paths, int npaths, int blendMode);
+	void (*renderStroke)(void* uptr, NVGpaint* paint, NVGscissor* scissor, float fringe, float strokeWidth, const NVGpath* paths, int npaths, int blendMode);
+	void (*renderTriangles)(void* uptr, NVGpaint* paint, NVGscissor* scissor, const NVGvertex* verts, int nverts, int blendMode);
 	void (*renderDelete)(void* uptr);
 };
 typedef struct NVGparams NVGparams;

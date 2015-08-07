@@ -158,6 +158,7 @@ struct GLNVGcall {
 	int triangleOffset;
 	int triangleCount;
 	int uniformOffset;
+	int blendMode;
 };
 typedef struct GLNVGcall GLNVGcall;
 
@@ -1064,10 +1065,51 @@ static void glnvg__renderCancel(void* uptr) {
 	gl->nuniforms = 0;
 }
 
+static void glnvg__setBlendMode(int mode)
+{
+	switch (mode) {
+		default:
+		case NVG_SOURCE_OVER:
+			glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+			break;
+		case NVG_SOURCE_IN:
+			glBlendFunc(GL_DST_ALPHA, GL_ZERO);
+			break;
+		case NVG_SOURCE_OUT:
+			glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ZERO);
+			break;
+		case NVG_SOURCE_ATOP:
+			glBlendFunc(GL_DST_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			break;
+		case NVG_DESTINATION_OVER:
+			glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE);
+			break;
+		case NVG_DESTINATION_IN:
+			glBlendFunc(GL_ZERO, GL_SRC_ALPHA);
+			break;
+		case NVG_DESTINATION_OUT:
+			glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
+			break;
+		case NVG_DESTINATION_ATOP:
+			glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_SRC_ALPHA);
+			break;
+		case NVG_LIGHTER:
+			glBlendFunc(GL_ONE, GL_ONE);
+			break;
+		case NVG_COPY:
+			glBlendFunc(GL_ONE, GL_ZERO);
+			break;
+		case NVG_XOR:
+			glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			break;
+	}
+}
+
 static void glnvg__renderFlush(void* uptr)
 {
 	GLNVGcontext* gl = (GLNVGcontext*)uptr;
 	int i;
+	int blendMode = NVG_SOURCE_OVER;
 
 	if (gl->ncalls > 0) {
 
@@ -1122,6 +1164,10 @@ static void glnvg__renderFlush(void* uptr)
 
 		for (i = 0; i < gl->ncalls; i++) {
 			GLNVGcall* call = &gl->calls[i];
+			if (blendMode != call->blendMode) {
+				blendMode = call->blendMode;
+				glnvg__setBlendMode(blendMode);
+			}
 			if (call->type == GLNVG_FILL)
 				glnvg__fill(gl, call);
 			else if (call->type == GLNVG_CONVEXFILL)
@@ -1238,7 +1284,7 @@ static void glnvg__vset(NVGvertex* vtx, float x, float y, float u, float v)
 }
 
 static void glnvg__renderFill(void* uptr, NVGpaint* paint, NVGscissor* scissor, float fringe,
-							  const float* bounds, const NVGpath* paths, int npaths)
+							  const float* bounds, const NVGpath* paths, int npaths, int blendMode)
 {
 	GLNVGcontext* gl = (GLNVGcontext*)uptr;
 	GLNVGcall* call = glnvg__allocCall(gl);
@@ -1253,6 +1299,7 @@ static void glnvg__renderFill(void* uptr, NVGpaint* paint, NVGscissor* scissor, 
 	if (call->pathOffset == -1) goto error;
 	call->pathCount = npaths;
 	call->image = paint->image;
+	call->blendMode = blendMode;
 
 	if (npaths == 1 && paths[0].convex)
 		call->type = GLNVG_CONVEXFILL;
@@ -1319,7 +1366,7 @@ error:
 }
 
 static void glnvg__renderStroke(void* uptr, NVGpaint* paint, NVGscissor* scissor, float fringe,
-								float strokeWidth, const NVGpath* paths, int npaths)
+								float strokeWidth, const NVGpath* paths, int npaths, int blendMode)
 {
 	GLNVGcontext* gl = (GLNVGcontext*)uptr;
 	GLNVGcall* call = glnvg__allocCall(gl);
@@ -1332,6 +1379,7 @@ static void glnvg__renderStroke(void* uptr, NVGpaint* paint, NVGscissor* scissor
 	if (call->pathOffset == -1) goto error;
 	call->pathCount = npaths;
 	call->image = paint->image;
+	call->blendMode = blendMode;
 
 	// Allocate vertices for all the paths.
 	maxverts = glnvg__maxVertCount(paths, npaths);
@@ -1374,7 +1422,7 @@ error:
 }
 
 static void glnvg__renderTriangles(void* uptr, NVGpaint* paint, NVGscissor* scissor,
-								   const NVGvertex* verts, int nverts)
+								   const NVGvertex* verts, int nverts, int blendMode)
 {
 	GLNVGcontext* gl = (GLNVGcontext*)uptr;
 	GLNVGcall* call = glnvg__allocCall(gl);
@@ -1384,6 +1432,7 @@ static void glnvg__renderTriangles(void* uptr, NVGpaint* paint, NVGscissor* scis
 
 	call->type = GLNVG_TRIANGLES;
 	call->image = paint->image;
+	call->blendMode = blendMode;
 
 	// Allocate vertices for all the paths.
 	call->triangleOffset = glnvg__allocVerts(gl, nverts);

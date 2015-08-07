@@ -78,6 +78,7 @@ struct NVGstate {
 	float fontBlur;
 	int textAlign;
 	int fontId;
+	int blendMode;
 };
 typedef struct NVGstate NVGstate;
 
@@ -584,6 +585,7 @@ void nvgReset(NVGcontext* ctx)
 	state->fontBlur = 0.0f;
 	state->textAlign = NVG_ALIGN_LEFT | NVG_ALIGN_BASELINE;
 	state->fontId = 0;
+	state->blendMode = NVG_SOURCE_OVER;
 }
 
 // State setting
@@ -681,6 +683,12 @@ void nvgStrokeColor(NVGcontext* ctx, NVGcolor color)
 {
 	NVGstate* state = nvg__getState(ctx);
 	nvg__setPaintColor(&state->stroke, color);
+}
+
+void nvgBlendMode(NVGcontext* ctx, int mode)
+{
+	NVGstate* state = nvg__getState(ctx);
+	state->blendMode = mode;
 }
 
 void nvgStrokePaint(NVGcontext* ctx, NVGpaint paint)
@@ -2102,7 +2110,7 @@ void nvgFill(NVGcontext* ctx)
 	fillPaint.outerColor.a *= state->alpha;
 
 	ctx->params.renderFill(ctx->params.userPtr, &fillPaint, &state->scissor, ctx->fringeWidth,
-						   ctx->cache->bounds, ctx->cache->paths, ctx->cache->npaths);
+						   ctx->cache->bounds, ctx->cache->paths, ctx->cache->npaths, state->blendMode);
 
 	// Count triangles
 	for (i = 0; i < ctx->cache->npaths; i++) {
@@ -2143,7 +2151,7 @@ void nvgStroke(NVGcontext* ctx)
 		nvg__expandStroke(ctx, strokeWidth*0.5f, state->lineCap, state->lineJoin, state->miterLimit);
 
 	ctx->params.renderStroke(ctx->params.userPtr, &strokePaint, &state->scissor, ctx->fringeWidth,
-							 strokeWidth, ctx->cache->paths, ctx->cache->npaths);
+							 strokeWidth, ctx->cache->paths, ctx->cache->npaths, state->blendMode);
 
 	// Count triangles
 	for (i = 0; i < ctx->cache->npaths; i++) {
@@ -2278,7 +2286,7 @@ static void nvg__renderText(NVGcontext* ctx, NVGvertex* verts, int nverts)
 	paint.innerColor.a *= state->alpha;
 	paint.outerColor.a *= state->alpha;
 
-	ctx->params.renderTriangles(ctx->params.userPtr, &paint, &state->scissor, verts, nverts);
+	ctx->params.renderTriangles(ctx->params.userPtr, &paint, &state->scissor, verts, nverts, state->blendMode);
 
 	ctx->drawCallCount++;
 	ctx->textTriCount += nverts/3;
