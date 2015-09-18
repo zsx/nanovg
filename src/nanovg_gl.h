@@ -105,6 +105,15 @@ GLuint nvglImageHandle(NVGcontext* ctx, int image);
 #include <math.h>
 #include "nanovg.h"
 
+struct GLNVGlayer {
+	GLuint fbo;
+	GLuint rbo;
+	GLuint texture;
+	GLint lastFBO;
+};
+
+typedef struct GLNVGlayer GLNVGlayer;
+
 enum GLNVGuniformLoc {
 	GLNVG_LOC_VIEWSIZE,
 	GLNVG_LOC_TEX,
@@ -830,6 +839,119 @@ static int glnvg__renderGetTextureSize(void* uptr, int image, int* w, int* h)
 	return 1;
 }
 
+void glnvg__renderDeleteLayer(void *uptr, NVGlayer *layer);
+
+static NVGlayer* glnvg__renderCreateLayer(void* uptr, int w, int h, int imageFlags)
+{
+#ifdef NANOVG_FBO_VALID
+	GLNVGcontext* gl = (GLNVGcontext*)uptr;
+	GLint lastFBO = -1;
+	GLint lastRBO = -1;
+	NVGlayer* layer = NULL;
+	GLNVGlayer *glLayer = NULL;
+
+
+	layer = (NVGlayer*)malloc(sizeof(NVGlayer));
+	if (layer == NULL) goto error;
+
+	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &lastFBO);
+	glGetIntegerv(GL_RENDERBUFFER_BINDING, &lastRBO);
+
+	layer->uptr = glLayer = (GLNVGlayer*)malloc(sizeof(GLNVGlayer));
+	if (glLayer == NULL) goto error;
+	memset(glLayer, 0, sizeof(GLNVGlayer));
+
+	layer->image = glnvg__renderCreateTexture(gl, NVG_TEXTURE_RGBA, w, h, imageFlags | NVG_IMAGE_FLIPY | NVG_IMAGE_PREMULTIPLIED, NULL);
+	glLayer->texture = glnvg__findTexture(gl, layer->image)->tex;
+
+	// frame buffer object
+	glGenFramebuffers(1, &glLayer->fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, glLayer->fbo);
+
+	// render buffer object
+	glGenRenderbuffers(1, &glLayer->rbo);
+	glBindRenderbuffer(GL_RENDERBUFFER, glLayer->rbo);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, w, h);
+
+	// combine all
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, glLayer->texture, 0);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, glLayer->rbo);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) goto error;
+
+	glBindFramebuffer(GL_FRAMEBUFFER, lastFBO);
+	glBindRenderbuffer(GL_RENDERBUFFER, lastRBO);
+
+	glLayer->lastFBO = lastFBO;
+	return layer;
+error:
+	glBindFramebuffer(GL_FRAMEBUFFER, lastFBO);
+	glBindRenderbuffer(GL_RENDERBUFFER, lastRBO);
+	glnvg__renderDeleteLayer(gl, layer);
+	return NULL;
+#else
+	NVG_NOTUSED(w);
+	NVG_NOTUSED(h);
+	NVG_NOTUSED(imageFlags);
+	return NULL;
+#endif
+}
+
+void glnvg__renderBindLayer(void *uptr, NVGlayer *layer)
+{
+#ifdef NANOVG_FBO_VALID
+	GLNVGlayer* glLayer = (GLNVGlayer*)layer->uptr;
+	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &glLayer->lastFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, glLayer->fbo);
+#else
+	NVG_NOTUSED(uptr);
+	NVG_NOTUSED(layer);
+#endif
+}
+
+void glnvg__renderUnbindLayer(void *uptr, NVGlayer *layer)
+{
+#ifdef NANOVG_FBO_VALID
+	GLNVGlayer* glLayer = (GLNVGlayer*)layer->uptr;
+	glBindFramebuffer(GL_FRAMEBUFFER, glLayer->lastFBO);
+#else
+	NVG_NOTUSED(uptr);
+	NVG_NOTUSED(layer);
+#endif
+}
+
+void glnvg__renderDeleteLayer(void *uptr, NVGlayer *layer)
+{
+#ifdef NANOVG_FBO_VALID
+	GLNVGcontext* gl = (GLNVGcontext*)uptr;
+	GLNVGlayer *glLayer;
+	if (layer == NULL) return;
+
+	glLayer = (GLNVGlayer*)(layer->uptr);
+	if (glLayer == NULL) {
+		free(layer);
+		return;
+	}
+
+	if (glLayer->fbo != 0)
+		glDeleteFramebuffers(1, &glLayer->fbo);
+	if (glLayer->rbo != 0)
+		glDeleteRenderbuffers(1, &glLayer->rbo);
+	glLayer->fbo = 0;
+	glLayer->rbo = 0;
+	glLayer->texture = 0;
+	glLayer->lastFBO = 0;
+	free(glLayer);
+
+	if (layer->image >= 0)
+		glnvg__deleteTexture(gl, layer->image);
+	layer->image = -1;
+	free(layer);
+#else
+	NVG_NOTUSED(layer);
+#endif
+}
+
 static void glnvg__xformToMat3x4(float* m3, float* t)
 {
 	m3[0] = t[0];
@@ -1520,6 +1642,10 @@ NVGcontext* nvgCreateGLES3(int flags)
 	params.renderStroke = glnvg__renderStroke;
 	params.renderTriangles = glnvg__renderTriangles;
 	params.renderDelete = glnvg__renderDelete;
+	params.renderCreateLayer = glnvg__renderCreateLayer;
+	params.renderDeleteLayer = glnvg__renderDeleteLayer;
+	params.renderBindLayer = glnvg__renderBindLayer;
+	params.renderUnbindLayer = glnvg__renderUnbindLayer;
 	params.userPtr = gl;
 	params.edgeAntiAlias = flags & NVG_ANTIALIAS ? 1 : 0;
 

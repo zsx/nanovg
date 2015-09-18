@@ -281,6 +281,14 @@ void nvgDeleteInternal(NVGcontext* ctx)
 	free(ctx);
 }
 
+static void nvg__initContext(NVGcontext *ctx)
+{
+	ctx->drawCallCount = 0;
+	ctx->fillTriCount = 0;
+	ctx->strokeTriCount = 0;
+	ctx->textTriCount = 0;
+}
+
 void nvgBeginFrame(NVGcontext* ctx, int windowWidth, int windowHeight, float devicePixelRatio)
 {
 /*	printf("Tris: draws:%d  fill:%d  stroke:%d  text:%d  TOT:%d\n",
@@ -295,10 +303,7 @@ void nvgBeginFrame(NVGcontext* ctx, int windowWidth, int windowHeight, float dev
 	
 	ctx->params.renderViewport(ctx->params.userPtr, windowWidth, windowHeight);
 
-	ctx->drawCallCount = 0;
-	ctx->fillTriCount = 0;
-	ctx->strokeTriCount = 0;
-	ctx->textTriCount = 0;
+	nvg__initContext(ctx);
 }
 
 void nvgCancelFrame(NVGcontext* ctx)
@@ -2757,4 +2762,40 @@ void nvgTextMetrics(NVGcontext* ctx, float* ascender, float* descender, float* l
 	if (lineh != NULL)
 		*lineh *= invscale;
 }
+
+NVGlayer* nvgCreateLayer(NVGcontext* ctx, int w, int h, int imageFlags)
+{
+	/* create a new layer and make it current */
+	return ctx->params.renderCreateLayer(ctx->params.userPtr, w, h, imageFlags);
+}
+
+void nvgBeginLayer(NVGcontext* ctx, NVGlayer *layer)
+{
+	NVGstate* state = NULL;
+
+	nvgSave(ctx);
+	state = nvg__getState(ctx);
+
+	ctx->params.renderFlush(ctx->params.userPtr);
+
+	ctx->params.renderBindLayer(ctx->params.userPtr, layer);
+
+	nvgTransformIdentity(state->xform);
+	nvg__initContext(ctx);
+}
+
+void nvgEndLayer(NVGcontext* ctx, NVGlayer *layer)
+{
+	ctx->params.renderFlush(ctx->params.userPtr);
+	ctx->params.renderUnbindLayer(ctx->params.userPtr, layer);
+	nvg__initContext(ctx);
+
+	nvgRestore(ctx);
+}
+
+void nvgDeleteLayer(NVGcontext* ctx, NVGlayer *layer)
+{
+	ctx->params.renderDeleteLayer(ctx->params.userPtr, layer);
+}
+
 // vim: ft=c nu noet ts=4

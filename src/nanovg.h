@@ -53,6 +53,12 @@ struct NVGpaint {
 };
 typedef struct NVGpaint NVGpaint;
 
+struct NVGlayer {
+	void *uptr; /* implementation dependent info */
+	int image;
+};
+typedef struct NVGlayer NVGlayer;
+
 enum NVGwinding {
 	NVG_CCW = 1,			// Winding for solid shapes
 	NVG_CW = 2,				// Winding for holes
@@ -137,6 +143,19 @@ void nvgCancelFrame(NVGcontext* ctx);
 
 // Ends drawing flushing remaining render state.
 void nvgEndFrame(NVGcontext* ctx);
+
+// Create a new layer
+NVGlayer* nvgCreateLayer(NVGcontext* ctx, int w, int h, int imageFlags);
+
+// Begin drawing onto a layer
+void nvgBeginLayer(NVGcontext* ctx, NVGlayer *layer);
+
+// Done drawing onto a layer
+// The drawing following this call will be drew to the default layer
+void nvgEndLayer(NVGcontext* ctx, NVGlayer *layer);
+
+// Delete the layer created by nvgCreateLayer()
+void nvgDeleteLayer(NVGcontext* ctx, NVGlayer *layer);
 
 //
 // Color utils
@@ -613,6 +632,10 @@ struct NVGparams {
 	void (*renderStroke)(void* uptr, NVGpaint* paint, NVGscissor* scissor, float fringe, float strokeWidth, const NVGpath* paths, int npaths, int blendMode);
 	void (*renderTriangles)(void* uptr, NVGpaint* paint, NVGscissor* scissor, const NVGvertex* verts, int nverts, int blendMode);
 	void (*renderDelete)(void* uptr);
+	NVGlayer* (*renderCreateLayer)(void *uptr, int w, int h, int imageFlags);
+	void (*renderBindLayer)(void *uptr, NVGlayer *);
+	void (*renderUnbindLayer)(void *uptr, NVGlayer *);
+	void (*renderDeleteLayer)(void *uptr, NVGlayer*);
 };
 typedef struct NVGparams NVGparams;
 
