@@ -890,6 +890,7 @@ static int glnvg__convertPaint(GLNVGcontext* gl, GLNVGfragUniforms* frag, NVGpai
 		if ((tex->flags & NVG_IMAGE_FLIPY) != 0) {
 			float flipped[6];
 			nvgTransformScale(flipped, 1.0f, -1.0f);
+			flipped[5] = gl->view[1]; //y = h - wy, where h is the window height, and wy is the y in window coordinates
 			nvgTransformMultiply(flipped, paint->xform);
 			nvgTransformInverse(invxform, flipped);
 		} else {
