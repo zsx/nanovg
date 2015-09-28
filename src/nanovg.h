@@ -144,6 +144,9 @@ void nvgCancelFrame(NVGcontext* ctx);
 // Ends drawing flushing remaining render state.
 void nvgEndFrame(NVGcontext* ctx);
 
+// Flushing all pending render state.
+void nvgFlush(NVGcontext* ctx);
+
 // Create a new layer
 NVGlayer* nvgCreateLayer(NVGcontext* ctx, int w, int h, int imageFlags);
 

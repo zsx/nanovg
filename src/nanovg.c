@@ -18,6 +18,8 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <assert.h>
+
 #include "nanovg.h"
 #define FONTSTASH_IMPLEMENTATION
 #include "fontstash.h"
@@ -311,6 +313,12 @@ void nvgCancelFrame(NVGcontext* ctx)
 	ctx->params.renderCancel(ctx->params.userPtr);
 }
 
+void nvgFlush(NVGcontext* ctx)
+{
+	ctx->params.renderFlush(ctx->params.userPtr);
+	nvg__initContext(ctx);
+}
+
 void nvgEndFrame(NVGcontext* ctx)
 {
 	ctx->params.renderFlush(ctx->params.userPtr);
@@ -565,11 +573,15 @@ void nvgRestore(NVGcontext* ctx)
 	if (ctx->nstates <= 1)
 		return;
 	ctx->nstates--;
+	assert(ctx->nstates >= 0);
 }
 
 void nvgReset(NVGcontext* ctx)
 {
 	NVGstate* state = nvg__getState(ctx);
+
+	assert(state >= &ctx->states);
+	assert(state <= &ctx->states[NVG_MAX_STATES - 1]);
 	memset(state, 0, sizeof(*state));
 
 	nvg__setPaintColor(&state->fill, nvgRGBA(255,255,255,255));
