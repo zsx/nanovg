@@ -2784,15 +2784,19 @@ NVGlayer* nvgCreateLayer(NVGcontext* ctx, int w, int h, int imageFlags)
 void nvgBeginLayer(NVGcontext* ctx, NVGlayer *layer)
 {
 	NVGstate* state = NULL;
+	float invxform[6];
 
 	nvgSave(ctx);
 	state = nvg__getState(ctx);
 
 	ctx->params.renderFlush(ctx->params.userPtr);
-
 	ctx->params.renderBindLayer(ctx->params.userPtr, layer);
+	
+	nvgTransformInverse(invxform, state->xform);
+	nvgTransformMultiply(state->scissor.xform, invxform);
 
 	nvgTransformIdentity(state->xform);
+
 	nvg__initContext(ctx);
 }
 
