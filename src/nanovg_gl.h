@@ -128,6 +128,13 @@ enum GLNVGshaderType {
 	NSVG_SHADER_IMG
 };
 
+enum GLNVGtexType {
+	GLNVG_TEX_NONE = 0,
+	GLNVG_TEX_PREMULTIPLIED = 1 << 0,
+	GLNVG_TEX_NON_RGBA = 1 << 1,
+	GLNVG_TEX_KEY_COLOR = 1 << 2,
+};
+
 #if NANOVG_GL_USE_UNIFORMBUFFER
 enum GLNVGuniformBindings {
 	GLNVG_FRAG_BINDING = 0,
@@ -148,6 +155,7 @@ struct GLNVGtexture {
 	int width, height;
 	int type;
 	int flags;
+	NVGcolor keyColor;
 };
 typedef struct GLNVGtexture GLNVGtexture;
 
@@ -194,6 +202,7 @@ struct GLNVGfragUniforms {
 		float strokeThr;
 		int texType;
 		int type;
+		struct NVGcolor keyColor;
 	#else
 		// note: after modifying layout or size of uniform array,
 		// don't forget to also update the fragment shader source!
@@ -213,6 +222,7 @@ struct GLNVGfragUniforms {
 				float strokeThr;
 				float texType;
 				float type;
+				struct NVGcolor keyColor;
 			};
 			float uniformArray[NANOVG_GL_UNIFORMARRAY_SIZE][4];
 		};
@@ -500,7 +510,7 @@ static int glnvg__renderCreate(void* uptr)
 #if NANOVG_GL_USE_UNIFORMBUFFER
 	"#define USE_UNIFORMBUFFER 1\n"
 #else
-	"#define UNIFORMARRAY_SIZE 11\n"
+	"#define UNIFORMARRAY_SIZE 12\n"
 #endif
 	"\n";
 
@@ -548,6 +558,7 @@ static int glnvg__renderCreate(void* uptr)
 		"		float strokeThr;\n"
 		"		int texType;\n"
 		"		int type;\n"
+		"		vec4 keyColor;\n"
 		"	};\n"
 		"#else\n" // NANOVG_GL3 && !USE_UNIFORMBUFFER
 		"	uniform vec4 frag[UNIFORMARRAY_SIZE];\n"
@@ -576,6 +587,7 @@ static int glnvg__renderCreate(void* uptr)
 		"	#define strokeThr frag[10].y\n"
 		"	#define texType int(frag[10].z)\n"
 		"	#define type int(frag[10].w)\n"
+		"	#define keyColor frag[11]\n"
 		"#endif\n"
 		"\n"
 		"float sdroundrect(vec2 pt, vec2 ext, float rad) {\n"
@@ -623,6 +635,7 @@ static int glnvg__renderCreate(void* uptr)
 		"#endif\n"
 		"		if (texType == 1) color = vec4(color.xyz*color.w,color.w);\n"
 		"		if (texType == 2) color = vec4(color.x);\n"
+		"		if (texType == 4 && color.xyz == keyColor.xyz) discard;\n"
 		"		// Apply color tint and alpha.\n"
 		"		color *= innerCol;\n"
 		"		// Combine alpha\n"
@@ -685,7 +698,7 @@ static int glnvg__renderCreate(void* uptr)
 	return 1;
 }
 
-static int glnvg__renderCreateTexture(void* uptr, int type, int w, int h, int imageFlags, const unsigned char* data)
+static int glnvg__renderCreateTexture(void* uptr, int type, int w, int h, int imageFlags, NVGcolor *keyColor, const unsigned char* data)
 {
 	GLNVGcontext* gl = (GLNVGcontext*)uptr;
 	GLNVGtexture* tex = glnvg__allocTexture(gl);
@@ -713,6 +726,8 @@ static int glnvg__renderCreateTexture(void* uptr, int type, int w, int h, int im
 	tex->height = h;
 	tex->type = type;
 	tex->flags = imageFlags;
+	if (imageFlags & NVG_IMAGE_KEY_COLOR && keyColor)
+		tex->keyColor = *keyColor;
 	glnvg__bindTexture(gl, tex->tex);
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT,1);
@@ -743,9 +758,12 @@ static int glnvg__renderCreateTexture(void* uptr, int type, int w, int h, int im
 	if (imageFlags & NVG_IMAGE_GENERATE_MIPMAPS) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	} else {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+						(imageFlags & NVG_IMAGE_KEY_COLOR)? GL_NEAREST : GL_LINEAR);
 	}
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
+					(imageFlags & NVG_IMAGE_KEY_COLOR)? GL_NEAREST : GL_LINEAR);
 
 	if (imageFlags & NVG_IMAGE_REPEATX)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -861,7 +879,7 @@ static NVGlayer* glnvg__renderCreateLayer(void* uptr, int w, int h, int imageFla
 	if (glLayer == NULL) goto error;
 	memset(glLayer, 0, sizeof(GLNVGlayer));
 
-	layer->image = glnvg__renderCreateTexture(gl, NVG_TEXTURE_RGBA, w, h, imageFlags | NVG_IMAGE_FLIPY | NVG_IMAGE_PREMULTIPLIED, NULL);
+	layer->image = glnvg__renderCreateTexture(gl, NVG_TEXTURE_RGBA, w, h, imageFlags | NVG_IMAGE_FLIPY | NVG_IMAGE_PREMULTIPLIED, NULL, NULL);
 	glLayer->texture = glnvg__findTexture(gl, layer->image)->tex;
 
 	// frame buffer object
@@ -1020,10 +1038,14 @@ static int glnvg__convertPaint(GLNVGcontext* gl, GLNVGfragUniforms* frag, NVGpai
 		}
 		frag->type = NSVG_SHADER_FILLIMG;
 
-		if (tex->type == NVG_TEXTURE_RGBA)
-			frag->texType = (tex->flags & NVG_IMAGE_PREMULTIPLIED) ? 0 : 1;
-		else
-			frag->texType = 2;
+		if (tex->type == NVG_TEXTURE_RGBA) {
+			frag->texType = (tex->flags & NVG_IMAGE_PREMULTIPLIED) ? GLNVG_TEX_NONE : GLNVG_TEX_PREMULTIPLIED;
+			if (tex->flags & NVG_IMAGE_KEY_COLOR) {
+				frag->texType = GLNVG_TEX_KEY_COLOR;
+				frag->keyColor = tex->keyColor;
+			}
+		} else
+			frag->texType = GLNVG_TEX_NON_RGBA;
 //		printf("frag->texType = %d\n", frag->texType);
 	} else {
 		frag->type = NSVG_SHADER_FILLGRAD;

@@ -126,6 +126,7 @@ enum NVGimageFlags {
 	NVG_IMAGE_REPEATY			= 1<<2,		// Repeat image in Y direction.
 	NVG_IMAGE_FLIPY				= 1<<3,		// Flips (inverses) image in Y direction when rendered.
 	NVG_IMAGE_PREMULTIPLIED		= 1<<4,		// Image data has premultiplied alpha.
+	NVG_IMAGE_KEY_COLOR			= 1<<5,		// Has a key color, which will be rendered transparant
 };
 
 // Begin drawing a new frame
@@ -353,15 +354,15 @@ float nvgRadToDeg(float rad);
 
 // Creates image by loading it from the disk from specified file name.
 // Returns handle to the image.
-int nvgCreateImage(NVGcontext* ctx, const char* filename, int imageFlags);
+int nvgCreateImage(NVGcontext* ctx, const char* filename, int imageFlags, NVGcolor *keyColor);
 
 // Creates image by loading it from the specified chunk of memory.
 // Returns handle to the image.
-int nvgCreateImageMem(NVGcontext* ctx, int imageFlags, unsigned char* data, int ndata);
+int nvgCreateImageMem(NVGcontext* ctx, int imageFlags, NVGcolor *keyColor, unsigned char* data, int ndata);
 
 // Creates image from specified image data.
 // Returns handle to the image.
-int nvgCreateImageRGBA(NVGcontext* ctx, int w, int h, int imageFlags, const unsigned char* data);
+int nvgCreateImageRGBA(NVGcontext* ctx, int w, int h, int imageFlags, NVGcolor *keyColor, const unsigned char* data);
 
 // Updates image data specified by image handle.
 void nvgUpdateImage(NVGcontext* ctx, int image, const unsigned char* data);
@@ -624,7 +625,7 @@ struct NVGparams {
 	void* userPtr;
 	int edgeAntiAlias;
 	int (*renderCreate)(void* uptr);
-	int (*renderCreateTexture)(void* uptr, int type, int w, int h, int imageFlags, const unsigned char* data);
+	int (*renderCreateTexture)(void* uptr, int type, int w, int h, int imageFlags, NVGcolor *keycolor, const unsigned char* data);
 	int (*renderDeleteTexture)(void* uptr, int image);
 	int (*renderUpdateTexture)(void* uptr, int image, int x, int y, int w, int h, const unsigned char* data);
 	int (*renderGetTextureSize)(void* uptr, int image, int* w, int* h);
