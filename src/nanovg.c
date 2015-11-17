@@ -606,11 +606,6 @@ void nvgReset(NVGcontext* ctx)
 }
 
 // State setting
-void nvgStrokeWidth(NVGcontext* ctx, float width)
-{
-	NVGstate* state = nvg__getState(ctx);
-	state->strokeWidth = width;
-}
 
 void nvgMiterLimit(NVGcontext* ctx, float limit)
 {
@@ -1864,6 +1859,20 @@ static int nvg__expandFill(NVGcontext* ctx, float w, int lineJoin, float miterLi
 }
 
 
+void nvgStrokeWidth(NVGcontext* ctx, float width, enum NVGlineWidthFlags flags)
+{
+	NVGstate* state = nvg__getState(ctx);
+	switch (flags) {
+	case NVG_LW_FIXED:
+		state->strokeWidth = width;
+		break;
+	case NVG_LW_SCALED:
+	default:
+		state->strokeWidth = nvg__getAverageScale(state->xform) * width;
+		break;
+	}
+}
+
 // Draw
 void nvgBeginPath(NVGcontext* ctx)
 {
@@ -2141,8 +2150,7 @@ void nvgFill(NVGcontext* ctx)
 void nvgStroke(NVGcontext* ctx)
 {
 	NVGstate* state = nvg__getState(ctx);
-	float scale = nvg__getAverageScale(state->xform);
-	float strokeWidth = nvg__clampf(state->strokeWidth * scale, 0.0f, 200.0f);
+	float strokeWidth = nvg__clampf(state->strokeWidth, 0.0f, 200.0f);
 	NVGpaint strokePaint = state->stroke;
 	const NVGpath* path;
 	int i;

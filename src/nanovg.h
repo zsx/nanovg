@@ -104,6 +104,12 @@ enum NVGblendMode
 	NVG_XOR
 };
 
+enum NVGlineWidthFlags
+{
+	NVG_LW_FIXED,
+	NVG_LW_SCALED
+};
+
 struct NVGglyphPosition {
 	const char* str;	// Position of the glyph in the input string.
 	float x;			// The x-coordinate of the logical glyph position.
