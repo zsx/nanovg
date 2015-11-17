@@ -579,15 +579,12 @@ void nvgRestore(NVGcontext* ctx)
 	if (ctx->nstates <= 1)
 		return;
 	ctx->nstates--;
-	assert(ctx->nstates >= 0);
 }
 
 void nvgReset(NVGcontext* ctx)
 {
 	NVGstate* state = nvg__getState(ctx);
 
-	assert(state >= &ctx->states);
-	assert(state <= &ctx->states[NVG_MAX_STATES - 1]);
 	memset(state, 0, sizeof(*state));
 
 	nvg__setPaintColor(&state->fill, nvgRGBA(255,255,255,255));
