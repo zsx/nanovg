@@ -211,7 +211,7 @@ NVGcontext* nvgCreateInternal(NVGparams* params)
 	if (ctx == NULL) goto error;
 	memset(ctx, 0, sizeof(NVGcontext));
 
-	ctx->params = *params;
+	if (params) ctx->params = *params;
 	for (i = 0; i < NVG_MAX_FONTIMAGES; i++)
 		ctx->fontImages[i] = 0;
 
@@ -228,7 +228,8 @@ NVGcontext* nvgCreateInternal(NVGparams* params)
 
 	nvg__setDevicePixelRatio(ctx, 1.0f);
 
-	if (ctx->params.renderCreate(ctx->params.userPtr) == 0) goto error;
+	if (ctx->params.renderCreate
+		&& ctx->params.renderCreate(ctx->params.userPtr) == 0) goto error;
 
 	// Init font rendering
 	memset(&fontParams, 0, sizeof(fontParams));
@@ -243,11 +244,16 @@ NVGcontext* nvgCreateInternal(NVGparams* params)
 	ctx->fs = fonsCreateInternal(&fontParams);
 	if (ctx->fs == NULL) goto error;
 
-	// Create font texture
-	ctx->fontImages[0] = ctx->params.renderCreateTexture(ctx->params.userPtr, NVG_TEXTURE_ALPHA, fontParams.width, fontParams.height, 0, NULL, NULL);
-	if (ctx->fontImages[0] == 0) goto error;
-	ctx->fontImageIdx = 0;
-
+	if (ctx->params.renderCreateTexture) {
+		// Create font texture
+		ctx->fontImages[0] = ctx->params.renderCreateTexture(ctx->params.userPtr, NVG_TEXTURE_ALPHA, fontParams.width, fontParams.height, 0, NULL, NULL);
+		if (ctx->fontImages[0] == 0) goto error;
+		ctx->fontImageIdx = 0;
+	}
+	else {
+		ctx->fontImages[0] = 0;
+		ctx->fontImageIdx = -1;
+	}
 	return ctx;
 
 error:
