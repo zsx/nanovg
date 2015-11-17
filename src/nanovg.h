@@ -376,6 +376,18 @@ void nvgUpdateImage(NVGcontext* ctx, int image, const unsigned char* data);
 // Returns the dimensions of a created image.
 void nvgImageSize(NVGcontext* ctx, int image, int* w, int* h);
 
+// Paint an image
+void nvgPaintImage(NVGcontext* ctx,
+	int image,
+	float top_left_x,
+	float top_left_y,
+	float top_right_x,
+	float top_right_y,
+	float bottom_left_x,
+	float bottom_left_y,
+	float bottom_right_x,
+	float bottom_right_y);
+
 // Deletes created image.
 void nvgDeleteImage(NVGcontext* ctx, int image);
 

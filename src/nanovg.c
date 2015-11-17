@@ -2192,6 +2192,44 @@ void nvgStroke(NVGcontext* ctx)
 	}
 }
 
+
+void nvgPaintImage(NVGcontext* ctx,
+	int image,
+	float top_left_x,
+	float top_left_y,
+	float top_right_x,
+	float top_right_y,
+	float bottom_left_x,
+	float bottom_left_y,
+	float bottom_right_x,
+	float bottom_right_y)
+{
+	NVGvertex* verts;
+	int nverts = 6;
+	int i = 0;
+	NVGstate* state = nvg__getState(ctx);
+	NVGpaint paint = state->fill;
+
+	// Render triangles.
+	paint.image = image;
+
+	// Apply global alpha
+	paint.innerColor.a *= state->alpha;
+	paint.outerColor.a *= state->alpha;
+
+	verts = nvg__allocTempVerts(ctx, nverts);
+	i = 0;
+	nvg__vset(&verts[i], top_left_x, top_left_y, 0, 1); i++;
+	nvg__vset(&verts[i], top_right_x, top_right_y, 1, 1); i++;
+	nvg__vset(&verts[i], bottom_left_x, bottom_left_y, 0, 0); i++;
+
+	nvg__vset(&verts[i], bottom_left_x, bottom_left_y, 0, 0); i++;
+	nvg__vset(&verts[i], top_right_x, top_right_y, 1, 1); i++;
+	nvg__vset(&verts[i], bottom_right_x, bottom_right_y, 1, 0); i++;
+
+	ctx->params.renderTriangles(ctx->params.userPtr, &paint, &state->scissor, verts, nverts, state->blendMode);
+}
+
 // Add fonts
 int nvgCreateFont(NVGcontext* ctx, const char* name, const char* path)
 {
