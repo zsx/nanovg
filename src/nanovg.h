@@ -249,7 +249,7 @@ void nvgFillPaint(NVGcontext* ctx, NVGpaint paint);
 void nvgMiterLimit(NVGcontext* ctx, float limit);
 
 // Sets the stroke width of the stroke style.
-void nvgStrokeWidth(NVGcontext* ctx, float size);
+void nvgStrokeWidth(NVGcontext* ctx, float size, enum NVGlineWidthFlags);
 
 // Sets how the end of the line (cap) is drawn,
 // Can be one of: NVG_BUTT (default), NVG_ROUND, NVG_SQUARE.
